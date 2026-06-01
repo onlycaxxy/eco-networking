@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+config.yaml
+prep/
+events.db
+events.db-journal
+.DS_Store
