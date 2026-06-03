@@ -58,3 +58,4 @@ class UserConfig:
     tagline: str
     api_key: str
     model: str = "claude-haiku-4-5-20251001"
+    base_url: str = "https://api.anthropic.com/v1"

@@ -96,7 +96,7 @@ def edit_entry(entry_id: int) -> None:
     console.print(f"\n[green]✅  已更新 ID {entry_id}：{new_title}[/green]\n")
 
 
-def list_entries(type_: str | None = None) -> None:
+def list_entries(type_: "str | None" = None) -> None:
     db.init()
     entries = db.list_brain(type_)
 

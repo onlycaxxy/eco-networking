@@ -45,7 +45,7 @@ def list_events(all_: bool = False) -> None:
     console.print(Panel(table, title=f"[bold]{label}（{len(events)} 筆）[/bold]", border_style="cyan"))
 
 
-def list_contacts(event_id: int | None = None) -> None:
+def list_contacts(event_id: "int | None" = None) -> None:
     contacts = db.list_contacts(event_id)
     title    = f"活動 {event_id} 的聯絡人" if event_id else "所有聯絡人"
 

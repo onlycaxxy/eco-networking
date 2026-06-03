@@ -1,11 +1,12 @@
 """
-llm.py — Claude API wrapper
+llm.py — OpenAI-compatible API wrapper
 
 PrepGenerator 類別：讀取 brain DB 內容，組裝 system / user prompt，
-呼叫 Claude API，回傳可直接寫入 Markdown 的字串。
+呼叫 OpenAI-compatible API（支援 Anthropic、Aliyun DashScope、OpenRouter 等），
+回傳可直接寫入 Markdown 的字串。
 """
 
-import anthropic
+from openai import OpenAI
 from ecko.models import Event, BrainEntry, UserConfig
 
 # ── Prompt 模板 ───────────────────────────────────────────────────────────────
@@ -75,7 +76,10 @@ Coffee Chat 對象：{name}
 class PrepGenerator:
     def __init__(self, config: UserConfig):
         self.config = config
-        self.client = anthropic.Anthropic(api_key=config.api_key)
+        self.client = OpenAI(
+            api_key=config.api_key,
+            base_url=config.base_url,
+        )
 
     def _build_brain_block(self, brain_entries: dict[str, list[BrainEntry]]) -> str:
         lines = []
@@ -111,14 +115,21 @@ class PrepGenerator:
         )
 
     def generate(self, event: Event, brain_entries: dict[str, list[BrainEntry]]) -> str:
-        """呼叫 Claude API，回傳生成的 Markdown 字串。"""
+        """呼叫 OpenAI-compatible API，回傳生成的 Markdown 字串。"""
         system = self._build_system(brain_entries)
         user   = self._build_user(event)
 
-        message = self.client.messages.create(
+        kwargs = dict(
             model=self.config.model,
             max_tokens=1024,
-            system=system,
-            messages=[{"role": "user", "content": user}],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
+            ],
         )
-        return message.content[0].text
+        # Aliyun Qwen 需要明確關閉 thinking mode，其他 supplier 不支援此參數
+        if "aliyuncs.com" in self.config.base_url:
+            kwargs["extra_body"] = {"enable_thinking": False}
+
+        response = self.client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content
