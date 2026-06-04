@@ -126,9 +126,14 @@ def draft_followup(contact_id: int) -> None:
         "anxiety_tip": db.get_brain("anxiety_tip"),
     }
 
+    console.print(f"\n  這次 follow-up 想帶給對方什麼？")
+    console.print("  [dim]（例：分享一篇文章、提議試用、介紹某人、分享你後來想到的 insight）[/dim]")
+    console.print("  ", end="")
+    intent = input().strip()
+
     with console.status(f"[cyan]生成 {platform} 訊息...[/cyan]", spinner="dots"):
         gen   = PrepGenerator(config)
-        draft = gen.generate_followup(target, brain_entries, platform)
+        draft = gen.generate_followup(target, brain_entries, platform, intent)
 
     console.print(Panel(
         draft,

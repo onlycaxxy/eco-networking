@@ -75,26 +75,30 @@ FOLLOWUP_SYSTEM_PROMPT = """\
 
 關於 {name}：
 - 她是 {product} 的創辦人：{tagline}
-- 她的溝通風格：真誠、不推銷感、不過度包裝
+- 她的溝通風格：真誠、不推銷感、每句話都有具體的資訊量
 
 她的核心素材：
 {brain_block}
 
-生成規則：
-1. 第一句必須提到對話裡的一件具體的事——不能是「很高興認識你」這種空話
-2. 不要寫「希望有機會合作」或「有空喝個咖啡」這種沒有資訊量的話
-3. 結尾要有一個明確的下一步：具體的提議，不是開放式的期待
-4. 直接輸出訊息本文，不要說「以下是」或加任何說明
-5. LinkedIn 版本不超過 80 字；Email 版本不超過 150 字，最前面加一行「主旨：xxx」
+訊息必須包含以下三層，順序不變：
+1. 【連結層】第一句提到對話裡的一個具體細節，讓對方知道你真的記得——不是「很高興認識你」
+2. 【價值層】你在對話後想到的 insight、資源或提案——給對方帶來東西，不是索取；這層要用「我後來想到⋯」或「我想分享⋯」這樣的語氣帶出
+3. 【行動層】一個具體的下一步提議，說清楚形式（例如「我可以傳你 beta 連結試用」「你方便的話我們約 20 分鐘 call？」）——不是「有空喝咖啡」
+
+格式規則：
+- LinkedIn：整則不超過 80 字，三層合為一段自然的訊息
+- Email：第一行「主旨：xxx」，內文三層可各一句，不超過 150 字
+- 直接輸出訊息本文，不加任何說明或前言
 """
 
 FOLLOWUP_USER_PROMPT = """\
 對象：{name}
 對方背景：{role}
-我們聊了什麼：{notes}
+我們聊的話題：{notes}
+這次 follow-up 想帶給對方的東西：{intent}
 傳送平台：{platform}
 
-請生成一則可以直接傳送的 follow-up 訊息。
+請依照三層結構（連結→價值→行動）生成一則可直接傳送的訊息。
 """
 
 
@@ -166,6 +170,7 @@ class PrepGenerator:
         contact: Contact,
         brain_entries: dict[str, list[BrainEntry]],
         platform: str = "LinkedIn",
+        intent: str = "",
     ) -> str:
         """根據聯絡人備註生成 follow-up 訊息草稿。"""
         system = FOLLOWUP_SYSTEM_PROMPT.format(
@@ -178,6 +183,7 @@ class PrepGenerator:
             name=contact.name,
             role=contact.role or "（未填）",
             notes=contact.notes or "（未記錄）",
+            intent=intent or "分享一個和對話主題相關的觀察或資源",
             platform=platform,
         )
 
