@@ -7,7 +7,7 @@ PrepGenerator 類別：讀取 brain DB 內容，組裝 system / user prompt，
 """
 
 from openai import OpenAI
-from ecko.models import Event, BrainEntry, UserConfig
+from ecko.models import Event, BrainEntry, Contact, UserConfig
 
 # ── Prompt 模板 ───────────────────────────────────────────────────────────────
 
@@ -70,6 +70,33 @@ Coffee Chat 對象：{name}
 （一句可以重新啟動對話的話）
 """
 
+FOLLOWUP_SYSTEM_PROMPT = """\
+你是 {name} 的 follow-up 訊息助理。
+
+關於 {name}：
+- 她是 {product} 的創辦人：{tagline}
+- 她的溝通風格：真誠、不推銷感、不過度包裝
+
+她的核心素材：
+{brain_block}
+
+生成規則：
+1. 第一句必須提到對話裡的一件具體的事——不能是「很高興認識你」這種空話
+2. 不要寫「希望有機會合作」或「有空喝個咖啡」這種沒有資訊量的話
+3. 結尾要有一個明確的下一步：具體的提議，不是開放式的期待
+4. 直接輸出訊息本文，不要說「以下是」或加任何說明
+5. LinkedIn 版本不超過 80 字；Email 版本不超過 150 字，最前面加一行「主旨：xxx」
+"""
+
+FOLLOWUP_USER_PROMPT = """\
+對象：{name}
+對方背景：{role}
+我們聊了什麼：{notes}
+傳送平台：{platform}
+
+請生成一則可以直接傳送的 follow-up 訊息。
+"""
+
 
 # ── PrepGenerator ──────────────────────────────────────────────────────────────
 
@@ -128,6 +155,40 @@ class PrepGenerator:
             ],
         )
         # Aliyun Qwen 需要明確關閉 thinking mode，其他 supplier 不支援此參數
+        if "aliyuncs.com" in self.config.base_url:
+            kwargs["extra_body"] = {"enable_thinking": False}
+
+        response = self.client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content
+
+    def generate_followup(
+        self,
+        contact: Contact,
+        brain_entries: dict[str, list[BrainEntry]],
+        platform: str = "LinkedIn",
+    ) -> str:
+        """根據聯絡人備註生成 follow-up 訊息草稿。"""
+        system = FOLLOWUP_SYSTEM_PROMPT.format(
+            name=self.config.name,
+            product=self.config.product,
+            tagline=self.config.tagline,
+            brain_block=self._build_brain_block(brain_entries),
+        )
+        user = FOLLOWUP_USER_PROMPT.format(
+            name=contact.name,
+            role=contact.role or "（未填）",
+            notes=contact.notes or "（未記錄）",
+            platform=platform,
+        )
+
+        kwargs = dict(
+            model=self.config.model,
+            max_tokens=512,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
+            ],
+        )
         if "aliyuncs.com" in self.config.base_url:
             kwargs["extra_body"] = {"enable_thinking": False}
 

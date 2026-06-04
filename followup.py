@@ -3,8 +3,9 @@
 followup.py — 查看和管理待 follow-up 的聯絡人
 
 用法:
-  python followup.py          列出所有待 follow-up
-  python followup.py done <id>  標記某人為已 follow-up
+  python followup.py               列出所有待 follow-up
+  python followup.py done <id>     標記某人為已 follow-up
+  python followup.py draft <id>    生成 follow-up 訊息草稿
 """
 
 import sys
@@ -88,6 +89,55 @@ def mark_done(contact_id: int) -> None:
     console.print(f"[green]✅  已標記完成：{target.name}[/green]")
 
 
+def draft_followup(contact_id: int) -> None:
+    from ecko.llm import PrepGenerator
+    from setup import load_config
+
+    db.init()
+    contacts = db.list_contacts()
+    target   = next((c for c in contacts if c.id == contact_id), None)
+
+    if not target:
+        console.print(f"[red]❌  找不到聯絡人 ID {contact_id}。[/red]")
+        sys.exit(1)
+
+    # 選平台
+    console.print("\n  平台：")
+    console.print("  [cyan][1][/cyan] LinkedIn")
+    console.print("  [cyan][2][/cyan] Email")
+    choice   = input("  選擇 (1/2)：").strip()
+    platform = "Email" if choice == "2" else "LinkedIn"
+
+    notes_preview = (target.notes or "（未記錄）")[:60]
+    if target.notes and len(target.notes) > 60:
+        notes_preview += "…"
+
+    console.print(Panel.fit(
+        f"[bold]{target.name}[/bold]  [dim]{target.role or ''}[/dim]\n"
+        f"聊了：{notes_preview}",
+        border_style="cyan",
+    ))
+
+    config = load_config()
+    brain_entries = {
+        "pitch":       db.get_brain("pitch"),
+        "intro":       db.get_brain("intro"),
+        "insight":     db.get_brain("insight"),
+        "anxiety_tip": db.get_brain("anxiety_tip"),
+    }
+
+    with console.status(f"[cyan]生成 {platform} 訊息...[/cyan]", spinner="dots"):
+        gen   = PrepGenerator(config)
+        draft = gen.generate_followup(target, brain_entries, platform)
+
+    console.print(Panel(
+        draft,
+        title=f"[bold green]📨  {platform} Follow-up 草稿[/bold green]",
+        border_style="green",
+    ))
+    console.print(f"\n  標記完成：[cyan]python followup.py done {contact_id}[/cyan]\n")
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
 
@@ -96,6 +146,11 @@ if __name__ == "__main__":
     elif args[0] == "done" and len(args) > 1:
         try:
             mark_done(int(args[1]))
+        except ValueError:
+            console.print("[red]❌  ID 必須是數字。[/red]")
+    elif args[0] == "draft" and len(args) > 1:
+        try:
+            draft_followup(int(args[1]))
         except ValueError:
             console.print("[red]❌  ID 必須是數字。[/red]")
     else:
